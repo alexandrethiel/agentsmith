@@ -16,6 +16,8 @@
  */
 package it.fridrik.agent;
 
+import it.fridrik.filemonitor.FileAddedListener;
+import it.fridrik.filemonitor.FileDeletedListener;
 import it.fridrik.filemonitor.FileEvent;
 import it.fridrik.filemonitor.FileModifiedListener;
 import it.fridrik.filemonitor.FileMonitor;
@@ -53,7 +55,7 @@ import java.util.logging.Logger;
  * @see JarMonitor
  * @since 1.0
  */
-public class Smith implements FileModifiedListener, JarModifiedListener {
+public class Smith implements FileModifiedListener, FileAddedListener, FileDeletedListener, JarModifiedListener {
 
 	/** Min period allowed */
 	private static final int MONITOR_PERIOD_MIN_VALUE = 500;
@@ -123,6 +125,8 @@ public class Smith implements FileModifiedListener, JarModifiedListener {
 
 		FileMonitor fileMonitor = new FileMonitor(classFolder, "class");
 		fileMonitor.addModifiedListener(this);
+		fileMonitor.addAddedListener(this);
+		fileMonitor.addDeletedListener(this);
 		service.scheduleWithFixedDelay(fileMonitor, 0, monitorPeriod,
 				TimeUnit.MILLISECONDS);
 
@@ -153,6 +157,19 @@ public class Smith implements FileModifiedListener, JarModifiedListener {
 		redefineClass(toClassName(event.getSource()), event);
 	}
 
+	@Override
+	public void fileDeleted(FileEvent event) {
+		redefineClass(toClassName(event.getSource()), event);
+	}
+
+	/**
+	 * Added and deleted file should be monitored too
+	 */
+	@Override
+	public void fileAdded(FileEvent event) {
+		redefineClass(toClassName(event.getSource()), event);
+	}
+	
 	/**
 	 * When the monitor notifies of a changed jar file, Smith will redefine the
 	 * changed class file the jar contains
@@ -185,8 +202,8 @@ public class Smith implements FileModifiedListener, JarModifiedListener {
 							getByteArrayOutOf(event));
 					inst.redefineClasses(new ClassDefinition[] { definition });
 
-					if (log.isLoggable(Level.FINE)) {
-						log.log(Level.FINE, "Redefined: " + clazz.getName());
+					if (log.isLoggable(Level.INFO)) {
+						log.log(Level.INFO, "Redefined: " + clazz.getName());
 					}
 				} catch (Exception e) {
 					log.log(Level.SEVERE, "error", e);
@@ -284,4 +301,5 @@ public class Smith implements FileModifiedListener, JarModifiedListener {
 
 		return result;
 	}
+
 }

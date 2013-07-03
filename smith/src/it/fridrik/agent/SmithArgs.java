@@ -44,7 +44,7 @@ public class SmithArgs {
 		this.classFolder = null;
 		this.jarFolder = null;
 		this.period = -1;
-		this.logLevel = Level.WARNING;
+		this.logLevel = Level.INFO;
 	}
 
 	public SmithArgs(String agentArgs) {
