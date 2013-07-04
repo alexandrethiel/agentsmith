@@ -2,13 +2,13 @@
  * Agent Smith - A java hot class redefinition implementation
  * Copyright (C) 2007 Federico Fissore
  *
- * Licensed under the Apache License, Version 2.0 (the "License"); 
- * you may not use this file except in compliance with the License. 
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  * 
  * http://www.apache.org/licenses/LICENSE-2.0
  * 
- * Unless required by applicable law or agreed to in writing, software 
+ * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
@@ -153,6 +153,7 @@ public class Smith implements FileModifiedListener, FileAddedListener, FileDelet
 	/**
 	 * When the monitor notifies of a changed class file, Smith will redefine it
 	 */
+	@Override
 	public void fileModified(FileEvent event) {
 		redefineClass(toClassName(event.getSource()), event);
 	}
@@ -169,11 +170,12 @@ public class Smith implements FileModifiedListener, FileAddedListener, FileDelet
 	public void fileAdded(FileEvent event) {
 		redefineClass(toClassName(event.getSource()), event);
 	}
-	
+
 	/**
 	 * When the monitor notifies of a changed jar file, Smith will redefine the
 	 * changed class file the jar contains
 	 */
+	@Override
 	public void jarModified(JarEvent event) {
 		redefineClass(toClassName(event.getEntryName()), event);
 	}
@@ -195,6 +197,7 @@ public class Smith implements FileModifiedListener, FileAddedListener, FileDelet
 	 */
 	protected void redefineClass(String className, EventObject event) {
 		Class[] loadedClasses = inst.getAllLoadedClasses();
+		boolean found = false;
 		for (Class<?> clazz : loadedClasses) {
 			if (clazz.getName().equals(className)) {
 				try {
@@ -205,11 +208,15 @@ public class Smith implements FileModifiedListener, FileAddedListener, FileDelet
 					if (log.isLoggable(Level.INFO)) {
 						log.log(Level.INFO, "Redefined: " + clazz.getName());
 					}
+
+					found = true;
 				} catch (Exception e) {
 					log.log(Level.SEVERE, "error", e);
 				}
 			}
 		}
+		if(!found)
+			log.log(Level.INFO, "Class not loaded : " + className + " no change done");
 	}
 
 	/**
