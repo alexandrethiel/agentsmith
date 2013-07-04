@@ -2,13 +2,13 @@
  * File Monitor - Watches a folder and notify files changes
  * Copyright (C) 2007 Federico Fissore
  *
- * Licensed under the Apache License, Version 2.0 (the "License"); 
- * you may not use this file except in compliance with the License. 
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  * 
  * http://www.apache.org/licenses/LICENSE-2.0
  * 
- * Unless required by applicable law or agreed to in writing, software 
+ * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
@@ -16,12 +16,16 @@
  */
 package it.fridrik.filemonitor;
 
+import it.fridrik.agent.Smith;
+
 import java.io.File;
 import java.io.FilenameFilter;
 import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 /**
  * FileMonitor (the name says it all) monitors a folder and its subfolders for
@@ -43,14 +47,16 @@ public class FileMonitor implements Runnable {
 	private final List<FileAddedListener> fileAddedListeners;
 	private final List<FileDeletedListener> fileDeletedListeners;
 	private final List<FileModifiedListener> fileModifiedListeners;
+	private static final Logger log = Logger.getLogger(FileMonitor.class.getName());
 
 	class ExtFilenameFilter implements FilenameFilter {
 
+		@Override
 		@SuppressWarnings("synthetic-access")
 		public boolean accept(File folder, String name) {
 			return name.endsWith(fileExtension)
 					|| new File(folder.getAbsolutePath() + File.separator + name)
-							.isDirectory();
+			.isDirectory();
 		}
 
 	}
@@ -78,9 +84,14 @@ public class FileMonitor implements Runnable {
 		}
 	}
 
+	@Override
 	public void run() {
-		checkDeletion();
-		checkAddAndModify(folder);
+		try {
+			checkDeletion();
+			checkAddAndModify(folder);
+		} catch(Exception ex) {
+			log.log(Level.SEVERE, "Failed to refresh "+folder,ex);
+		}
 	}
 
 	/**
@@ -120,7 +131,7 @@ public class FileMonitor implements Runnable {
 					}
 				} else {
 					fileMap
-							.put(file.getAbsolutePath(), Long.valueOf(file.lastModified()));
+					.put(file.getAbsolutePath(), Long.valueOf(file.lastModified()));
 					notifyAddedListeners(new FileEvent(file.getAbsolutePath(), folder
 							.getAbsolutePath()));
 				}
