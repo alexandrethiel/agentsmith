@@ -16,6 +16,7 @@
  */
 package it.fridrik.agent;
 
+import it.fridrik.diff.Diff;
 import it.fridrik.filemonitor.FileAddedListener;
 import it.fridrik.filemonitor.FileDeletedListener;
 import it.fridrik.filemonitor.FileEvent;
@@ -30,12 +31,18 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.PrintWriter;
+import java.io.StringWriter;
 import java.lang.instrument.ClassDefinition;
+import java.lang.instrument.ClassFileTransformer;
+import java.lang.instrument.IllegalClassFormatException;
 import java.lang.instrument.Instrumentation;
 import java.lang.instrument.UnmodifiableClassException;
+import java.security.ProtectionDomain;
 import java.util.Enumeration;
 import java.util.EventObject;
 import java.util.Vector;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -44,6 +51,9 @@ import java.util.jar.JarFile;
 import java.util.logging.ConsoleHandler;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+
+import org.objectweb.asm.ClassReader;
+import org.objectweb.asm.util.TraceClassVisitor;
 
 /**
  * Agent Smith is an agent with just one aim: redefining classes as soon as they
@@ -98,6 +108,8 @@ public class Smith implements FileModifiedListener, FileAddedListener, FileDelet
 	private final String jarFolder;
 	private final ScheduledExecutorService service;
 
+	private ConcurrentHashMap<String, byte[]> classData = new ConcurrentHashMap<String, byte[]>();
+
 	/**
 	 * Creates and starts a new Smith agent. Please note that periods smaller than
 	 * 500 (milliseconds) won't be considered.
@@ -115,6 +127,21 @@ public class Smith implements FileModifiedListener, FileAddedListener, FileDelet
 		if (args.getPeriod() > monitorPeriod) {
 			monitorPeriod = args.getPeriod();
 		}
+
+		inst.addTransformer(new ClassFileTransformer() {
+
+			@Override
+			public byte[] transform(ClassLoader loader, String className,
+					Class<?> classBeingRedefined, ProtectionDomain protectionDomain,
+					byte[] classfileBuffer) throws IllegalClassFormatException {
+
+				byte[] previous = classData.put(className, classfileBuffer);
+				if(previous != null)
+					displayCompare(previous,classfileBuffer);
+				return classfileBuffer;
+			}
+
+		});
 		log.setUseParentHandlers(false);
 		log.setLevel(args.getLogLevel());
 		ConsoleHandler consoleHandler = new ConsoleHandler();
@@ -141,6 +168,28 @@ public class Smith implements FileModifiedListener, FileAddedListener, FileDelet
 		log.info("Smith: watching jars folder: " + jarFolder);
 		log.info("Smith: period between checks (ms): " + monitorPeriod);
 		log.info("Smith: log level: " + log.getLevel());
+	}
+
+
+	private void displayCompare(byte[] previousByteCode, byte[] newByteCode) {
+		log.info("Compare : \n"+Diff.compare(classToString(previousByteCode), classToString(newByteCode)));
+	}
+
+	private String classToString(byte[] byteCode) {
+		StringWriter sw = new StringWriter();
+		ClassReader cr = new ClassReader(byteCode);
+		PrintWriter pw = new PrintWriter(sw);
+		TraceClassVisitor classVisitor = new TraceClassVisitor(pw);
+		cr.accept(classVisitor, 0);
+		pw.flush();
+		String[] linesArray = sw.toString().split("\\n");
+		sw = new StringWriter();
+		for(String line : linesArray) {
+			if(line.trim().startsWith("LINENUMBER")) // remove line number change
+				continue;
+			sw.append(line+"\n");
+		}
+		return sw.toString();
 	}
 
 	/**
